@@ -115,6 +115,9 @@ class Handler(BaseHTTPRequestHandler):
             return {"kinds": {key: value[0] for key, value in KINDS.items()}, "demo": self.server.demo}
         if path == "/api/records":
             return self.server.store.list(**{key: query.get(key, [default])[0] for key, default in [("kind", ""), ("query", ""), ("day", ""), ("order", "date")]})
+        if path == "/api/search":
+            return self.server.store.search(**{key: query.get(key, [""])[0] for key in ("query", "kind", "date_from", "date_to", "tag")},
+                                            order=query.get("order", ["date"])[0])
         if path == "/api/record":
             return self.server.store.get(query.get("id", [""])[0])
         if path == "/api/trash":

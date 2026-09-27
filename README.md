@@ -43,7 +43,7 @@
 
 也可直接运行 `python -B -m app.server`。工具只使用 Python 标准库，无需 npm 或第三方 Python 包。初次体验可运行 `.\Start-PGOS.ps1 -Demo`，演示使用临时虚构数据，退出服务时清理。
 
-App 提供六类记录、最近时间线、标题/日期筛选、全文关键词搜索、Markdown 编辑、反思字段引导、回收站删除与恢复，以及可选本地 AI 草稿。点击「保存」或 Ctrl+S 后写入 `private/workspace/`；不会自动更新长期模型。完整说明与限制见 [App 使用指南](docs/app-v1.md)。
+App 提供六类记录、最近时间线、按需关键词搜索（可组合类型、日期范围和正文标签）、Markdown 编辑、反思字段引导、回收站删除与恢复，以及可选本地 AI 草稿。点击「保存」或 Ctrl+S 后写入 `private/workspace/`；不会自动更新长期模型。完整说明与限制见 [App 使用指南](docs/app-v1.md)。
 
 ## Ollama 使用说明（可选）
 

@@ -64,24 +64,28 @@ function buildNavigation() {
   for (const [kind, label] of Object.entries(state.kinds)) {
     const option = document.createElement('option'); option.value = kind; option.textContent = label;
     $('new-kind').append(option);
+    $('search-kind').append(option.cloneNode(true));
   }
 }
 function updateSelection() {
   $('selected-count').textContent = state.selected.size ? `已选 ${state.selected.size} 条（含筛选外）` : '未选择记录';
   $('open-ai').disabled = state.selected.size === 0;
 }
-async function refresh() {
-  const version = ++state.listVersion;
-  const params = new URLSearchParams({ kind: state.kind, query: $('search').value,
-    day: $('date-filter').value, order: $('sort').value });
-  const result = await api('/api/records?' + params);
-  if (version !== state.listVersion) return;
-  const total = Object.values(result.counts).reduce((a, b) => a + b, 0);
-  $('total').textContent = total;
-  $('result-count').textContent = `${result.records.length} 条记录`;
-  document.querySelectorAll('[data-count-kind]').forEach((el) => {
-    el.textContent = el.dataset.countKind ? result.counts[el.dataset.countKind] : total;
-  });
+function clearSearchFields() {
+  $('search').value = ''; $('search-kind').value = ''; $('date-from').value = '';
+  $('date-to').value = ''; $('tag-filter').value = '';
+}
+function renderRecords(result, searched = false) {
+  if (result.counts) {
+    const total = Object.values(result.counts).reduce((a, b) => a + b, 0);
+    $('total').textContent = total;
+    document.querySelectorAll('[data-count-kind]').forEach((el) => {
+      el.textContent = el.dataset.countKind ? result.counts[el.dataset.countKind] : total;
+    });
+  }
+  $('result-count').textContent = searched
+    ? `显示 ${result.records.length} / ${result.matches} 条匹配${result.scan_limited ? ' · 仅扫描前 500 个文件' : ''}`
+    : `${result.records.length} 条记录`;
   const list = $('records'); list.replaceChildren();
   let day = null;
   for (const record of result.records) {
@@ -102,17 +106,36 @@ async function refresh() {
     const open = document.createElement('button'); open.className = 'record-open';
     const title = document.createElement('h3'); title.textContent = record.title;
     const preview = document.createElement('p'); preview.textContent = record.preview;
-    const type = document.createElement('span'); type.className = 'card-type'; type.textContent = state.kinds[record.kind];
+    const type = document.createElement('span'); type.className = 'card-type'; type.textContent = `${state.kinds[record.kind]} · ${record.date}`;
     open.append(title, preview, type);
     open.addEventListener('click', () => openRecord(record.id).catch((error) => notify(error.message)));
     card.append(checkbox, open); list.append(card);
   }
   if (!result.records.length) {
     const empty = document.createElement('p'); empty.className = 'empty-list';
-    empty.textContent = $('search').value || $('date-filter').value ? '没有匹配记录。试试其他关键词或清除筛选。' : '这里还没有记录。点击「新建记录」，从一个小行动开始。';
+    empty.textContent = searched ? '没有匹配记录。可调整条件后重新搜索。' : '这里还没有记录。点击「新建记录」，从一个小行动开始。';
     list.append(empty);
   }
   if (result.skipped) notify(`${result.skipped} 个文件无法读取或超过大小限制，已跳过；原文件未修改。`);
+}
+async function refresh() {
+  clearSearchFields();
+  $('page-title').textContent = state.kind ? state.kinds[state.kind] : '最近记录';
+  const version = ++state.listVersion;
+  const params = new URLSearchParams({ kind: state.kind, order: $('sort').value });
+  const result = await api('/api/records?' + params);
+  if (version === state.listVersion) renderRecords(result);
+}
+async function runSearch(event) {
+  event.preventDefault();
+  const version = ++state.listVersion;
+  const params = new URLSearchParams({ query: $('search').value, kind: $('search-kind').value,
+    date_from: $('date-from').value, date_to: $('date-to').value,
+    tag: $('tag-filter').value, order: $('sort').value });
+  const result = await api('/api/search?' + params);
+  if (version !== state.listVersion) return;
+  $('page-title').textContent = '搜索结果';
+  renderRecords(result, true);
 }
 function showRecord(record) {
   state.current = record; state.dirty = false; state.guideDirty = false;
@@ -209,7 +232,6 @@ async function openTrash() {
         $('trash-dialog').close(); showRecord(restored);
         state.kind = ''; $('page-title').textContent = '最近记录';
         document.querySelectorAll('#navigation button').forEach((el) => el.classList.toggle('active', el.dataset.kind === ''));
-        $('search').value = ''; $('date-filter').value = '';
         await refresh(); notify('记录已恢复到原位置。');
       } catch (error) { restore.disabled = false; notify(error.message); }
     });
@@ -228,7 +250,6 @@ async function createRecord(event) {
     $('new-dialog').close(); state.kind = record.kind;
     $('page-title').textContent = state.kinds[state.kind];
     document.querySelectorAll('#navigation button').forEach((el) => el.classList.toggle('active', el.dataset.kind === state.kind));
-    $('search').value = ''; $('date-filter').value = '';
     showRecord(record); await refresh(); $('content').focus();
   } finally { $('submit-new').disabled = false; }
 }
@@ -300,10 +321,8 @@ async function start() {
   bind('cancel-delete', 'click', () => $('delete-dialog').close());
   bind('open-trash', 'click', openTrash); bind('close-trash', 'click', () => $('trash-dialog').close());
   bind('title', 'input', updateDirty); bind('content', 'input', updateDirty);
-  let searchTimer;
-  bind('search', 'input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => refresh().catch((error) => notify(error.message)), 180); });
-  bind('date-filter', 'change', refresh); bind('sort', 'change', refresh);
-  bind('reset-filter', 'click', () => { $('search').value = ''; $('date-filter').value = ''; return refresh(); });
+  bind('search-form', 'submit', runSearch);
+  bind('reset-filter', 'click', refresh);
   for (const [id, text] of [['heading-insert', '\n## '], ['list-insert', '\n- '], ['check-insert', '\n- [ ] ']]) {
     bind(id, 'click', () => { const editor = $('content'); editor.setRangeText(text, editor.selectionStart, editor.selectionEnd, 'end'); editor.focus(); updateDirty(); });
   }

@@ -19,6 +19,8 @@ KINDS = {
     "reflections": ("周复盘", "review"),
 }
 MAX_RECORD = 256 * 1024
+MAX_SEARCH_FILES = 500
+MAX_SEARCH_RESULTS = 100
 
 
 class AppError(Exception):
@@ -141,6 +143,84 @@ class Store:
                 records.append(summary)
         records.sort(key=(lambda r: r["title"].casefold()) if order == "title" else (lambda r: (r["date"], r["modified"])), reverse=order == "date")
         return {"records": records, "counts": counts, "skipped": skipped}
+
+    @staticmethod
+    def _tags(content):
+        tags = set()
+        for line in content.splitlines():
+            match = re.fullmatch(r"\s*标签\s*[:：]\s*(.*?)\s*", line)
+            if match:
+                tags.update(value.strip().lstrip("#").casefold()
+                            for value in re.split(r"[,，]", match[1]) if value.strip())
+        return tags
+
+    @staticmethod
+    def _snippet(record, query):
+        body, title_skipped = [], False
+        for line in record["content"].splitlines():
+            if line.startswith("<!-- pgos-date:"):
+                continue
+            if not title_skipped and line.startswith("# "):
+                title_skipped = True
+                continue
+            body.append(line)
+        content = "\n".join(body)
+        if query:
+            match = re.search(re.escape(query), content, re.IGNORECASE)
+            if match:
+                start = max(0, match.start() - 55)
+                end = min(len(content), match.end() + 80)
+                return ("…" if start else "") + re.sub(r"\s+", " ", content[start:end]).strip() + ("…" if end < len(content) else "")
+        lines = [line.strip() for line in content.splitlines()
+                 if line.strip() and not line.startswith(("# ", "<!--"))]
+        return " ".join(lines)[:140]
+
+    def search(self, query="", kind="", date_from="", date_to="", tag="", order="date"):
+        if not isinstance(query, str) or len(query) > 200:
+            raise AppError("搜索词应不超过 200 字符。")
+        if kind and kind not in KINDS:
+            raise AppError("未知记录类型。")
+        if date_from:
+            valid_day(date_from)
+        if date_to:
+            valid_day(date_to)
+        if date_from and date_to and date_from > date_to:
+            raise AppError("起始日期不能晚于结束日期。")
+        if not isinstance(tag, str) or len(tag) > 60:
+            raise AppError("标签应不超过 60 字符。")
+        if order not in {"date", "title"}:
+            raise AppError("未知排序方式。")
+        query = query.strip()
+        tag = tag.strip().lstrip("#").casefold()
+        records, skipped, scanned, truncated = [], 0, 0, False
+        with self.lock:
+            for relative, path in self._paths():
+                if kind and relative.split("/", 1)[0] != kind:
+                    continue
+                if scanned >= MAX_SEARCH_FILES:
+                    truncated = True
+                    break
+                scanned += 1
+                try:
+                    record = self._read(relative, path)
+                except (OSError, AppError):
+                    skipped += 1
+                    continue
+                if date_from and record["date"] < date_from or date_to and record["date"] > date_to:
+                    continue
+                if tag and tag not in self._tags(record["content"]):
+                    continue
+                if query.casefold() not in (record["title"] + "\n" + record["content"]).casefold():
+                    continue
+                summary = {key: value for key, value in record.items()
+                           if key not in {"content", "relative", "revision"}}
+                summary["preview"] = self._snippet(record, query)
+                records.append(summary)
+        records.sort(key=(lambda r: r["title"].casefold()) if order == "title" else (lambda r: (r["date"], r["modified"])), reverse=order == "date")
+        total_matches = len(records)
+        return {"records": records[:MAX_SEARCH_RESULTS], "matches": total_matches,
+                "scanned": scanned, "scan_limited": truncated,
+                "result_limited": total_matches > MAX_SEARCH_RESULTS, "skipped": skipped}
 
     def template(self, kind):
         if kind not in KINDS:

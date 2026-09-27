@@ -76,6 +76,43 @@ class StoreTests(Fixture):
         self.assertEqual(self.store.list()["records"][0]["date"], "2025-01-03")
         self.assertEqual(self.store.list()["counts"]["learning"], 1)
 
+    def test_on_demand_search_combines_filters_and_preserves_markdown(self):
+        target = self.record("learning", "虚构纸飞机", "2025-01-03",
+                             "标签：练习，纸艺\n观察 <img src=x onerror=alert(1)> 折痕。")
+        self.record("learning", "较早纸飞机", "2025-01-01", "标签：练习\n观察折痕。")
+        self.record("goals", "另一种纸飞机", "2025-01-03", "标签：练习\n观察折痕。")
+        before = self.snapshot()
+        found = self.store.search(query="折痕", kind="learning", date_from="2025-01-02",
+                                  date_to="2025-01-04", tag="纸艺")
+        self.assertEqual(found["matches"], 1)
+        self.assertEqual(found["records"][0]["id"], target["id"])
+        self.assertEqual(found["records"][0]["date"], "2025-01-03")
+        self.assertIn("<img src=x onerror=alert(1)>", found["records"][0]["preview"])
+        self.assertNotIn("pgos-date", found["records"][0]["preview"])
+        self.assertEqual(before, self.snapshot())
+        self.assertEqual(self.store.search(tag="#纸艺")["matches"], 1)
+        self.assertEqual(self.store.search(query="不存在")["matches"], 0)
+        self.record("learning", "另一条虚构记录", "2025-01-04", "# 正文一级标题\n内容")
+        self.assertIn("正文一级标题", self.store.search(query="正文一级标题")["records"][0]["preview"])
+        with self.assertRaises(AppError):
+            self.store.search(date_from="2025-02-01", date_to="2025-01-01")
+        with self.assertRaises(AppError):
+            self.store.search(tag="x" * 61)
+
+    def test_search_scan_limit_is_reported(self):
+        for index in range(3):
+            self.record(title=f"虚构记录 {index}")
+        with patch("app.storage.MAX_SEARCH_FILES", 2):
+            result = self.store.search()
+        self.assertEqual(result["scanned"], 2)
+        self.assertTrue(result["scan_limited"])
+        self.assertEqual(result["matches"], 2)
+        with patch("app.storage.MAX_SEARCH_RESULTS", 1):
+            result = self.store.search()
+        self.assertEqual(result["matches"], 3)
+        self.assertEqual(len(result["records"]), 1)
+        self.assertTrue(result["result_limited"])
+
     def test_external_legacy_markdown_and_private_memory_scope(self):
         root = self.root / "private/workspace"
         (root / "journal").mkdir(parents=True)
@@ -308,6 +345,16 @@ class HTTPTests(Fixture):
         self.assertIn("风筝尾翼", json.loads(raw)["content"])
         status, raw, _ = self.request("GET", "/api/records?kind=learning&day=2025-01-02")
         self.assertEqual(len(json.loads(raw)["records"]), 1)
+
+    def test_http_search_combines_filters(self):
+        self.record("learning", "虚构练习", "2025-01-02", "标签：观察\n纸飞机折痕")
+        self.record("goals", "虚构目标", "2025-01-02", "标签：观察\n纸飞机折痕")
+        status, raw, _ = self.request("GET", "/api/search?query=%E6%8A%98%E7%97%95&kind=learning&date_from=2025-01-01&date_to=2025-01-03&tag=%E8%A7%82%E5%AF%9F")
+        self.assertEqual(status, 200)
+        result = json.loads(raw)
+        self.assertEqual(result["matches"], 1)
+        self.assertEqual(result["records"][0]["kind"], "learning")
+        self.assertEqual(self.request("GET", "/api/search?date_from=2025-02-01&date_to=2025-01-01")[0], 400)
 
     def test_api_auth_origin_and_private_files(self):
         self.assertEqual(self.request("GET", "/api/records", authorized=False)[0], 403)

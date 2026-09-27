@@ -22,7 +22,7 @@
     <section class="heading"><div><p class="overline">YOUR GROWTH, ONE NOTE AT A TIME</p><h1 id="page-title">最近记录</h1><p class="muted">把想法写下来，让行动有迹可循。</p></div><div class="total"><strong id="total">0</strong><span>条记录</span></div></section>
     <section class="workspace">
       <section class="timeline-panel" aria-label="记录时间线">
-        <div class="filters"><input id="search" type="search" placeholder="搜索标题或正文…" aria-label="搜索记录"><div class="filter-row"><input id="date-filter" type="date" aria-label="按日期筛选"><select id="sort" aria-label="排序"><option value="date">日期 · 最近优先</option><option value="title">标题 · 升序</option></select><button id="reset-filter" title="清除筛选" aria-label="清除筛选">↺</button></div></div>
+        <form id="search-form" class="filters"><input id="search" type="search" maxlength="200" placeholder="搜索标题或正文…" aria-label="搜索记录"><div class="filter-row"><select id="search-kind" aria-label="搜索类型"><option value="">全部类型</option></select><input id="tag-filter" maxlength="60" placeholder="标签" aria-label="标签筛选"></div><div class="filter-row"><input id="date-from" type="date" aria-label="起始日期"><input id="date-to" type="date" aria-label="结束日期"></div><div class="filter-row"><select id="sort" aria-label="排序"><option value="date">日期 · 最近优先</option><option value="title">标题 · 升序</option></select><button id="search-submit" type="submit">搜索</button><button id="reset-filter" type="button" title="清除筛选" aria-label="清除筛选">↺</button></div></form>
         <div class="list-meta"><span id="result-count">0 条</span><button id="refresh" class="subtle">刷新</button></div>
         <div id="records" class="records"></div>
         <div class="selection-bar"><span id="selected-count">未选择记录</span><button id="open-ai" disabled>本地 AI 分析</button></div>
