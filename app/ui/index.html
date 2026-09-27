@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="pgos-session" content="__SESSION__">
+  <title>Personal Growth OS</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232d6351'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-family='Arial,sans-serif' font-size='32' font-weight='700' fill='white'%3EPG%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark" aria-label="PG">PG</span><div>Personal Growth OS<small>记录 · 行动 · 反馈</small></div></div>
+    <button id="create" class="primary wide">＋ 新建记录</button>
+    <p class="overline">我的工作空间</p>
+    <nav id="navigation" aria-label="记录类型"></nav>
+    <div class="sidebar-foot"><button id="open-trash" class="subtle">回收站</button><br><span class="local-dot"></span> 本地优先 · Markdown<p>让每一次小行动，留下线索。</p><button id="exit" class="subtle">退出应用</button></div>
+  </aside>
+  <main>
+    <header class="topbar"><span id="today"></span><span id="mode" class="pill">本地工作空间</span></header>
+    <section class="heading"><div><p class="overline">YOUR GROWTH, ONE NOTE AT A TIME</p><h1 id="page-title">最近记录</h1><p class="muted">把想法写下来，让行动有迹可循。</p></div><div class="total"><strong id="total">0</strong><span>条记录</span></div></section>
+    <section class="workspace">
+      <section class="timeline-panel" aria-label="记录时间线">
+        <div class="filters"><input id="search" type="search" placeholder="搜索标题或正文…" aria-label="搜索记录"><div class="filter-row"><input id="date-filter" type="date" aria-label="按日期筛选"><select id="sort" aria-label="排序"><option value="date">日期 · 最近优先</option><option value="title">标题 · 升序</option></select><button id="reset-filter" title="清除筛选" aria-label="清除筛选">↺</button></div></div>
+        <div class="list-meta"><span id="result-count">0 条</span><button id="refresh" class="subtle">刷新</button></div>
+        <div id="records" class="records"></div>
+        <div class="selection-bar"><span id="selected-count">未选择记录</span><button id="open-ai" disabled>本地 AI 分析</button></div>
+      </section>
+      <section class="editor-panel" aria-label="记录编辑区">
+        <div id="welcome" class="welcome"><div class="empty-symbol">＋</div><h2>从一条记录开始</h2><p>选择左侧记录，或从模板新建。<br>目标、练习、感受，都可以慢慢整理。</p><button id="welcome-create" class="primary">从模板开始</button><small>普通记录与搜索无需 AI，也无需联网。</small></div>
+        <div id="editor" hidden>
+          <div class="editor-toolbar"><span id="record-type" class="pill"></span><span id="save-state" role="status">已保存</span><button id="delete-record" class="danger">删除</button><button id="save" class="primary">保存 <kbd>Ctrl S</kbd></button></div>
+          <input id="title" class="title-input" aria-label="记录标题" maxlength="120">
+          <div class="record-meta"><span id="record-date"></span><span>Markdown · 本地文件</span></div>
+          <details id="reflection-guide" class="guide" hidden><summary>反思引导 <span>区分事实、感受与解释</span></summary><p>这里只整理你填写的内容；解释始终标为待验证，不更新长期模型。</p><div id="guide-fields"></div><label>下一步状态<select id="action-state"><option value="Suggested">Suggested · 建议</option><option value="Decided">Decided · 已决定</option><option value="Executed">Executed · 已执行</option><option value="Result">Result · 已有反馈</option></select></label><button id="insert-guide">把引导内容加入正文</button></details>
+          <div class="writing-toolbar"><button id="heading-insert">H2 标题</button><button id="list-insert">＋ 列表</button><button id="check-insert">☐ 待办</button><span id="word-count">0 字符</span></div>
+          <textarea id="content" class="markdown-editor" aria-label="Markdown 正文" spellcheck="false" placeholder="在这里写下你的记录…"></textarea>
+          <footer class="editor-footer"><span id="record-location"></span><span>手动保存 · 无自动上传</span></footer>
+        </div>
+      </section>
+    </section>
+  </main>
+  <div id="notification" class="notification" role="status" hidden></div>
+  <dialog id="delete-dialog"><div class="dialog-heading"><h2>将记录移到回收站？</h2><button id="cancel-delete" class="subtle">取消</button></div><p id="delete-title" class="delete-title"></p><p class="muted">记录将从时间线、搜索和计数中移除，可从左侧「回收站」恢复。其他记录中的引用不会自动改写。</p><button id="confirm-delete" class="danger wide">确认移到回收站</button></dialog>
+  <dialog id="trash-dialog" class="trash-dialog"><div class="dialog-heading"><h2>回收站</h2><button id="close-trash" class="subtle">关闭</button></div><p class="muted">保留已保存的 Markdown 原件。恢复后回到原位置；如有同名文件，不会覆盖。</p><div id="trash-records"></div></dialog>
+  <dialog id="new-dialog"><form id="new-form"><div class="dialog-heading"><h2>新建一条记录</h2><button id="cancel-new" type="button" class="subtle">关闭</button></div><p class="muted">从现有 Markdown 模板开始，保存到你的本地工作空间。</p><label>类型<select id="new-kind"></select></label><label>标题<input id="new-title" required maxlength="120" placeholder="给这次记录一个标题"></label><label>日期<input id="new-date" type="date" required></label><button id="submit-new" class="primary wide" type="submit">创建并开始编辑</button></form></dialog>
+  <dialog id="ai-dialog" class="ai-dialog"><div class="dialog-heading"><div><p class="overline">LOCAL AI · OPTIONAL</p><h2>先核对输入，再生成草稿</h2></div><button id="close-ai" class="subtle">关闭</button></div><p class="muted">仅连接本机 Ollama。所选内容以当前已保存版本的快照发送；不会读取其他记录。</p><div id="scope-summary" class="scope-summary"></div><details><summary>查看完整输入范围和分析约束</summary><pre id="ai-input"></pre></details><label for="custom-prompt">自定义分析提示词（可选）<textarea id="custom-prompt" rows="4" maxlength="24000" placeholder="例如：重点分析行动中的阻碍，并给出可以尝试的下一步。留空则按原方式分析。"></textarea></label><div class="model-row"><button id="load-models">检测本机模型</button><select id="model" aria-label="本地模型"><option value="">先检测可用模型</option></select></div><p id="ai-status" role="status">尚未调用 AI。未安装 Ollama 不影响日常使用。</p><button id="generate" class="primary" disabled>将上述输入发送给本机模型</button><section id="draft-area" hidden><h3>助手草稿 · 待验证</h3><p class="muted">核对事实与解释。确认保存只代表保留草稿，不代表结论已证实。</p><textarea id="draft" aria-label="AI 分析草稿"></textarea><label class="check-label"><input id="confirm-draft" type="checkbox">我已核对，保存为一条新的反思记录</label><button id="save-draft" class="primary" disabled>确认保存草稿</button></section></dialog>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Human/Agent convention only; CLI does not parse this file.
+schema_version: 1
+language: zh-CN
+timezone: UTC
+workspace: private/workspace
+review:
+  cadence: weekly
+  week_starts_on: monday
+agent:
+  provider: manual
+  model: YOUR_MODEL_NAME
+  credential_environment_variable: PGOS_API_KEY
+  read_scope: explicit_files_only
+privacy:
+  share_personal_data: false
+  synthetic_examples_only: true
